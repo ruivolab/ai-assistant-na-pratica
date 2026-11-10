@@ -1,0 +1,7 @@
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:8000 {
+		# a resposta do chat vem aos pedaços (SSE): repassa cada pedaço na hora
+		flush_interval -1
+	}
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loja Exemplo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script src="/static/chat.js"></script>
+</head>
+<body>
+  <header><span class="brand">Loja Exemplo</span> · tudo para o seu café</header>
+
+  <section class="shelf" x-data="{ products: [] }"
+           x-init="products = await (await fetch('/api/products')).json()">
+    <template x-for="p in products" :key="p.id">
+      <article class="product">
+        <h2 x-text="p.name"></h2>
+        <div class="price" x-text="money(p.price)"></div>
+        <div class="sold-out" x-show="!p.available">esgotado</div>
+      </article>
+    </template>
+  </section>
+
+  <div x-data="chat()">
+    <div class="panel" x-show="open" x-transition>
+      <header>Assistente da Loja Exemplo</header>
+      <div class="messages" x-ref="list">
+        <template x-for="(m, i) in messages" :key="i">
+          <div>
+            <div class="msg" :class="m.from" x-show="m.text" x-text="m.text"></div>
+            <div class="card" x-show="m.confirm">
+              <span x-text="m.confirm?.question"></span>
+              <div x-show="!m.decided">
+                <button class="strong" @click="decide(m, true)">Permitir</button>
+                <button @click="decide(m, false)">Recusar</button>
+              </div>
+            </div>
+            <div class="card" x-show="m.link">
+              <span x-text="'Pedido ' + m.link?.number + ' · ' + money(m.link?.total)"></span>
+              <a class="button strong" :href="m.link?.url" target="_blank" rel="noopener">Ir para o pagamento</a>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="chips">
+        <template x-for="s in suggestions" :key="s">
+          <button @click="send(s)" x-text="s" :disabled="sending"></button>
+        </template>
+      </div>
+      <form class="send" @submit.prevent="send(text)">
+        <input x-model="text" placeholder="Pergunte sobre um produto..." maxlength="2000" :disabled="sending">
+        <button class="strong" :disabled="sending || !text.trim()">Enviar</button>
+      </form>
+    </div>
+    <div class="bubble" @click="open = !open" title="Posso ajudar?"><div class="face"></div></div>
+  </div>
+</body>
+</html>

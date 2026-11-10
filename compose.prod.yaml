@@ -1,0 +1,26 @@
+# Na VPS: docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+# O Caddy tira o certificado HTTPS sozinho; o app deixa de publicar porta e só o Caddy fala com a internet.
+services:
+  app:
+    ports: !reset []
+    environment:
+      STORE_PUBLIC_URL: https://${DOMAIN:?defina DOMAIN no arquivo .env}
+
+  caddy:
+    image: caddy:2.8.4
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
