@@ -33,6 +33,12 @@ async function send() {
       const data = JSON.parse(part.match(/^data: (.*)$/m)[1]);
       if (kind === "text") answer.textContent += data;
       if (kind === "suggestions") showButtons(data);
+      if (kind === "link") {
+        const a = document.createElement("a");
+        a.href = data.link;
+        a.textContent = "Ir para o pagamento";
+        buttons.append(a);
+      }
     }
   }
 }

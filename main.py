@@ -5,11 +5,11 @@ from pathlib import Path
 
 import anthropic
 import yaml
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastmcp import Client
 
-from store.server import mcp
+from store.server import ORDERS, mcp
 
 app = FastAPI()
 client = anthropic.Anthropic()
@@ -113,11 +113,14 @@ def chat(body: dict):
                 break
             results = []
             for call in calls:
+                result = run_tool(call.name, call.input)
                 results.append({
                     "type": "tool_result",
                     "tool_use_id": call.id,
-                    "content": run_tool(call.name, call.input),
+                    "content": result,
                 })
+                if call.name == "create_purchase_link":
+                    yield sse("link", json.loads(result))
             history.append({"role": "user", "content": results})
 
         yield sse("suggestions", SUGGESTIONS)
@@ -126,3 +129,24 @@ def chat(body: dict):
     return StreamingResponse(
         pieces(), media_type="text/event-stream", headers=headers
     )
+
+
+@app.get("/checkout/{token}", response_class=HTMLResponse)
+def checkout(token: str):
+    order = ORDERS.get(token)
+    if order is None:
+        raise HTTPException(404, "Link inválido.")
+    return f"""<h1>Pedido {order['number']}</h1>
+<p>{order['quantity']} x {order['product']}:
+R$ {order['total']:.2f}</p>
+<form method="post" action="/checkout/{token}/pay">
+  <button>Pagar</button></form>"""
+
+
+@app.post("/checkout/{token}/pay", response_class=HTMLResponse)
+def pay(token: str):
+    order = ORDERS.get(token)
+    if order is None:
+        raise HTTPException(404, "Link inválido.")
+    order["status"] = "pago"
+    return "<h1>Pago!</h1><p>Pagamento simulado.</p>"
