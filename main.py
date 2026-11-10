@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from pathlib import Path
@@ -6,6 +7,9 @@ import anthropic
 import yaml
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
+from fastmcp import Client
+
+from store.server import mcp
 
 app = FastAPI()
 client = anthropic.Anthropic()
@@ -20,17 +24,6 @@ Responda em português, curto e simpático.
 SUGGESTIONS = [
     "Ver os produtos", "Posso trocar um produto?", "Quero comprar",
 ]
-
-PRODUCTS = [
-    {"name": "Cafeteira italiana 6 xícaras", "price": 189.90},
-    {"name": "Prensa francesa 1 L", "price": 149.00},
-]
-
-TOOLS = [{
-    "name": "list_products",
-    "description": "Lista os produtos da loja, com preço.",
-    "input_schema": {"type": "object", "properties": {}},
-}]
 
 
 def load_skills(folder):
@@ -60,16 +53,26 @@ OPEN_SKILL = {
         "required": ["name"],
     },
 }
-TOOLS.append(OPEN_SKILL)
+
+
+async def store_tools():
+    async with Client(mcp) as store:
+        tools = await store.list_tools()
+    return [{"name": t.name, "description": t.description,
+             "input_schema": t.input_schema} for t in tools]
+
+
+async def call_store(name, args):
+    async with Client(mcp) as store:
+        result = await store.call_tool(name, args)
+    return json.dumps(result.data, ensure_ascii=False)
 
 
 def run_tool(name, args):
-    if name == "list_products":
-        return json.dumps(PRODUCTS, ensure_ascii=False)
     if name == "open_skill":
         skill = SKILLS.get(args["name"])
         return skill["steps"] if skill else "Essa skill não existe."
-    return "Essa ferramenta não existe."
+    return asyncio.run(call_store(name, args))
 
 
 def sse(kind, data):
@@ -93,10 +96,11 @@ def chat(body: dict):
     history.append({"role": "user", "content": body["message"]})
 
     def pieces():
+        tools = asyncio.run(store_tools()) + [OPEN_SKILL]
         while True:
             with client.messages.stream(
                 model="claude-opus-5-5", max_tokens=16000,
-                system=SYSTEM, messages=history, tools=TOOLS,
+                system=SYSTEM, messages=history, tools=tools,
             ) as stream:
                 for text in stream.text_stream:
                     yield sse("text", text)
