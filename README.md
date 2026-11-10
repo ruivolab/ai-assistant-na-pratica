@@ -1,6 +1,6 @@
-# Loja Exemplo · Passo 05
+# Loja Exemplo · Passo 06
 
-O código do livro **AI Assistant na Prática**, do jeito que ele fica no fim do Passo 05.
+O código do livro **AI Assistant na Prática**, do jeito que ele fica no fim do Passo 06.
 Cada passo do livro tem uma tag (`passo-01` a `passo-12`). O código completo, organizado em pacote, está
 no branch `main` e no anexo do livro.
 
