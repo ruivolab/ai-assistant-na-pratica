@@ -1,11 +1,8 @@
 services:
   app:
     build: .
+    env_file: .env  # a chave da API e o ASSISTANT_*: ficam só no servidor
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?defina ANTHROPIC_API_KEY no arquivo .env}
-      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
-      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-low}
-      ASSISTANT_MESSAGES_PER_HOUR: ${ASSISTANT_MESSAGES_PER_HOUR:-30}
       STORE_PUBLIC_URL: ${STORE_PUBLIC_URL:-http://localhost:8000}
     ports:
       - "127.0.0.1:8000:8000"
