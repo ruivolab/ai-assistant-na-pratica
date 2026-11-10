@@ -24,6 +24,18 @@ Três regras que o código segue e os testes conferem:
    (`test_the_ai_cannot_confirm_on_its_own`).
 3. **O balão só conversa com o seu servidor.** A chave da API fica no servidor, nunca no navegador.
 
+## Passo a passo
+
+Cada passo do livro tem uma tag com o projeto do jeito que ele fica no fim daquele passo, no branch
+`passos`: `passo-01` (o servidor que responde ok) até `passo-12` (Docker e a VPS). Os passos usam um
+`main.py` só; este `main` é o código completo do anexo, organizado em pacote.
+
+```bash
+git clone https://github.com/ruivolab/ai-assistant-na-pratica.git
+cd ai-assistant-na-pratica
+git checkout passo-07     # o projeto no fim do Passo 7
+```
+
 ## Rodar
 
 Você precisa de Python 3.12 ou mais novo, do [uv](https://docs.astral.sh/uv/) e de uma chave da API da Anthropic
