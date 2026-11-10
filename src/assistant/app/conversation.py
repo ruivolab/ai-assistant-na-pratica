@@ -84,7 +84,8 @@ class Assistant:
 
     def instructions(self):
         return f"""Você é o assistente da Loja Exemplo, uma loja de café.
-Responda em português, curto e simpático.
+Responda em português, curto e simpático, em texto simples: o balão não mostra markdown
+(nada de ** nem #).
 
 Como responder:
 - Confirme o que entendeu só quando houver dúvida.

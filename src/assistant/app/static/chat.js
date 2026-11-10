@@ -17,8 +17,9 @@ function chat() {
       this.suggestions = [];
       this.sending = true;
       this.messages.push({ from: "customer", text });
-      let current = { from: "assistant", text: "" };
-      this.messages.push(current);
+      this.messages.push({ from: "assistant", text: "" });
+      // o Alpine embrulha o que entra na lista: guarde o embrulho, não o objeto cru
+      let current = this.messages.at(-1);
 
       try {
         const response = await fetch("/api/chat", {
@@ -32,20 +33,21 @@ function chat() {
             : "Não consegui responder.";
           return;
         }
+        // um cartão entra na conversa e o texto seguinte vai num balão novo, depois dele
+        // (o balão vazio que sobrar some no filtro do fim)
+        const card = (message) => {
+          this.messages.push(message);
+          this.messages.push({ from: "assistant", text: "" });
+          current = this.messages.at(-1);
+        };
         await readEvents(response.body, (kind, payload) => {
           if (kind === "conversation") this.conversation = payload.id;
           else if (kind === "text") current.text += payload;
-          else if (kind === "confirm") this.messages.push({ from: "assistant", confirm: payload });
-          else if (kind === "link") this.messages.push({ from: "assistant", link: payload });
+          else if (kind === "confirm") card({ from: "assistant", confirm: payload });
+          else if (kind === "link") card({ from: "assistant", link: payload });
           else if (kind === "handoff") this.notice("Uma pessoa do atendimento vai continuar daqui.");
           else if (kind === "suggestions") this.suggestions = payload;
           else if (kind === "blocked" || kind === "error") current.text = payload;
-
-          // um cartão entrou no meio: o texto seguinte vai num balão novo
-          if (current.text && this.messages.at(-1) !== current) {
-            current = { from: "assistant", text: "" };
-            this.messages.push(current);
-          }
           this.$nextTick(() => (this.$refs.list.scrollTop = this.$refs.list.scrollHeight));
         });
       } finally {
