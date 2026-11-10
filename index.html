@@ -1,14 +1,23 @@
 <input id="message"> <button onclick="send()">Enviar</button>
 <p id="answer"></p>
+<div id="buttons"></div>
 <script>
+const input = document.getElementById("message");
+const answer = document.getElementById("answer");
+const buttons = document.getElementById("buttons");
+let conversation = null;
+
 async function send() {
-  const message = document.getElementById("message").value;
-  const answer = document.getElementById("answer");
+  const message = input.value;
+  input.value = "";
+  answer.textContent = "";
+  buttons.innerHTML = "";
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, conversation }),
   });
+  conversation = response.headers.get("X-Conversation");
   const reader = response.body
     .pipeThrough(new TextDecoderStream())
     .getReader();
@@ -20,8 +29,20 @@ async function send() {
     const parts = buffer.split("\n\n");
     buffer = parts.pop();  // o último pode ter chegado pela metade
     for (const part of parts) {
-      answer.textContent += JSON.parse(part.slice(6));
+      const kind = part.match(/^event: (.*)$/m)[1];
+      const data = JSON.parse(part.match(/^data: (.*)$/m)[1]);
+      if (kind === "text") answer.textContent += data;
+      if (kind === "suggestions") showButtons(data);
     }
+  }
+}
+
+function showButtons(options) {
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.textContent = option;
+    button.onclick = () => { input.value = option; send(); };
+    buttons.append(button);
   }
 }
 </script>
