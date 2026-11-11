@@ -1,5 +1,6 @@
 import asyncio
 import json
+import secrets
 import uuid
 from pathlib import Path
 
@@ -55,9 +56,15 @@ OPEN_SKILL = {
 }
 
 
+KINDS = {}
+PENDING = {}
+
+
 async def store_tools():
     async with Client(mcp) as store:
         tools = await store.list_tools()
+    for t in tools:
+        KINDS[t.name] = (t.meta or {}).get("kind")
     return [{"name": t.name, "description": t.description,
              "input_schema": t.input_schema} for t in tools]
 
@@ -113,7 +120,15 @@ def chat(body: dict):
                 break
             results = []
             for call in calls:
-                result = run_tool(call.name, call.input)
+                if KINDS.get(call.name) == "change":
+                    code = secrets.token_urlsafe(12)
+                    PENDING[code] = (call.name, call.input)
+                    question = f"Permitir {call.name}({call.input})?"
+                    data = {"id": code, "question": question}
+                    yield sse("confirm", data)
+                    result = "Espere o clique da pessoa."
+                else:
+                    result = run_tool(call.name, call.input)
                 results.append({
                     "type": "tool_result",
                     "tool_use_id": call.id,
@@ -150,3 +165,26 @@ def pay(token: str):
         raise HTTPException(404, "Link inválido.")
     order["status"] = "pago"
     return "<h1>Pago!</h1><p>Pagamento simulado.</p>"
+
+
+async def person_clicked_allow(*_):
+    return True
+
+
+async def call_store_with_yes(name, args):
+    store = Client(mcp, mode="legacy",
+                   elicitation_handler=person_clicked_allow)
+    async with store:
+        result = await store.call_tool(name, args)
+    return result.data
+
+
+@app.post("/api/confirm")
+def confirm(body: dict):
+    pending = PENDING.pop(body["id"], None)
+    if pending is None:
+        raise HTTPException(404, "Nada para confirmar.")
+    if not body.get("allow"):
+        return {"done": False}
+    name, args = pending
+    return asyncio.run(call_store_with_yes(name, args))

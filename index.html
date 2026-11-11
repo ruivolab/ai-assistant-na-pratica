@@ -39,6 +39,23 @@ async function send() {
         a.textContent = "Ir para o pagamento";
         buttons.append(a);
       }
+      if (kind === "confirm") {
+        answer.textContent += " " + data.question;
+        const choices = [["Permitir", true], ["Recusar", false]];
+        for (const [label, allow] of choices) {
+          const button = document.createElement("button");
+          button.textContent = label;
+          button.onclick = async () => {
+            const response = await fetch("/api/confirm", { method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: data.id, allow }) });
+            const result = await response.json();
+            buttons.innerHTML = "";
+            answer.textContent += result.done ? " Feito." : " Nada mudou.";
+          };
+          buttons.append(button);
+        }
+      }
     }
   }
 }

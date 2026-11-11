@@ -98,5 +98,28 @@ def search_docs(question: str) -> list[dict]:
     return [piece for score, piece in found[:3]]
 
 
+from fastmcp import Context
+
+
+async def person_said_yes(ctx, question):
+    try:
+        answer = await ctx.elicit(question, response_type=bool)
+    except Exception:
+        return False  # o app não sabe perguntar: é não
+    return answer.action == "accept" and answer.data is True
+
+
+@mcp.tool(meta={"kind": "change"})
+async def cancel_order(number: int, ctx: Context) -> dict:
+    """Cancela um pedido. A pessoa precisa autorizar."""
+    if not await person_said_yes(ctx, f"Cancelar o pedido {number}?"):
+        return {"done": False, "reason": "Sem o sim, nada mudou."}
+    for order in ORDERS.values():
+        if order["number"] == number:
+            order["status"] = "cancelado"
+            return {"done": True, **order}
+    return {"done": False, "reason": "Pedido não existe."}
+
+
 if __name__ == "__main__":
     mcp.run()
