@@ -1,0 +1,13 @@
+services:
+  app:
+    ports: !reset []
+    environment:
+      STORE_PUBLIC_URL: https://loja.seudominio.com.br
+  caddy:
+    image: caddy:2.8.4
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  caddy_data:

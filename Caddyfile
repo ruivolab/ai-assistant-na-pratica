@@ -1,0 +1,5 @@
+loja.seudominio.com.br {
+    reverse_proxy app:8000 {
+        flush_interval -1
+    }
+}
