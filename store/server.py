@@ -56,5 +56,47 @@ def create_purchase_link(name: str, quantity: int = 1) -> dict:
     return {"created": True, **ORDERS[token], "link": link}
 
 
+import re
+import unicodedata
+from pathlib import Path
+
+DOCS = Path(__file__).parent.parent / "docs"
+
+
+def load_pieces():
+    pieces = []
+    for path in sorted(DOCS.glob("*.md")):
+        texts = path.read_text(encoding="utf-8").split("\n\n")
+        for number, text in enumerate(texts, 1):
+            source = f"{path.name} §{number}"
+            pieces.append({"source": source, "text": text.strip()})
+    return pieces
+
+
+PIECES = load_pieces()
+
+
+def roots(text):
+    plain = unicodedata.normalize("NFKD", text.lower())
+    plain = plain.encode("ascii", "ignore").decode()
+    return {word[:5] for word in re.findall(r"\w{4,}", plain)}
+
+
+@mcp.tool
+def search_docs(question: str) -> list[dict]:
+    """Busca nos textos da loja: trocas, frete e manuais.
+    Responda só com o que os trechos dizem e cite a fonte
+    entre colchetes, como [trocas.md §1].
+    Lista vazia: diga que não encontrou."""
+    wanted = roots(question)
+    found = []
+    for piece in PIECES:
+        score = len(wanted & roots(piece["text"]))
+        if score > 0:
+            found.append((score, piece))
+    found.sort(key=lambda pair: pair[0], reverse=True)
+    return [piece for score, piece in found[:3]]
+
+
 if __name__ == "__main__":
     mcp.run()
