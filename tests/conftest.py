@@ -5,7 +5,7 @@ from fastmcp import Client
 
 from assistant.app.conversation import Assistant
 from assistant.app.skills import load
-from assistant.store import data
+from assistant.store import data, server
 from assistant.store.server import mcp
 
 from .paths import SKILLS
@@ -16,6 +16,8 @@ CANARY = "CANARIO-teste123"
 @pytest.fixture(autouse=True)
 def clean_store():
     data.reset()
+    server.VISITORS = None  # a demo pública liga a loja por visitante; aqui, a loja única
+    server.PUBLIC_URL = None
 
 
 class ScriptedModel:

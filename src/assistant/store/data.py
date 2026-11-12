@@ -5,6 +5,8 @@ depois do clique da pessoa.
 """
 
 import secrets
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 
 INITIAL_PRODUCTS = {
@@ -49,6 +51,29 @@ INITIAL_PRODUCTS = {
 PRODUCTS = {}
 ORDERS = {}
 ORDER_BY_TOKEN = {}
+DEFAULT_STORE = {"products": PRODUCTS, "orders": ORDERS, "by_token": ORDER_BY_TOKEN}
+
+# Na demo pública, cada visitante tem a própria loja; o app do livro usa sempre a DEFAULT_STORE.
+_current = ContextVar("store", default=DEFAULT_STORE)
+STORE_OF_TOKEN = {}  # o checkout chega só com o token: é ele que diz de qual loja é o pedido
+
+
+def new_store():
+    return {"products": deepcopy(INITIAL_PRODUCTS), "orders": {}, "by_token": {}}
+
+
+@contextmanager
+def using(store):
+    token = _current.set(store)
+    try:
+        yield store
+    finally:
+        _current.reset(token)
+
+
+def forget(store):
+    for token in store["by_token"]:
+        STORE_OF_TOKEN.pop(token, None)
 
 
 def reset():
@@ -56,13 +81,22 @@ def reset():
     PRODUCTS.update(deepcopy(INITIAL_PRODUCTS))
     ORDERS.clear()
     ORDER_BY_TOKEN.clear()
+    STORE_OF_TOKEN.clear()
 
 
 reset()
 
 
+def _products():
+    return _current.get()["products"]
+
+
+def _orders():
+    return _current.get()["orders"]
+
+
 def summary(product_id):
-    product = PRODUCTS[product_id]
+    product = _products()[product_id]
     return {
         "id": product_id,
         "name": product["name"],
@@ -72,13 +106,13 @@ def summary(product_id):
 
 
 def list_products(category=None):
-    return [summary(pid) for pid, p in PRODUCTS.items() if category in (None, p["category"])]
+    return [summary(pid) for pid, p in _products().items() if category in (None, p["category"])]
 
 
 def search_products(term):
     term = term.casefold()
     found = []
-    for pid, p in PRODUCTS.items():
+    for pid, p in _products().items():
         text = f"{p['name']} {p['description']} {p['category']}".casefold()
         if term in text:
             found.append(summary(pid))
@@ -86,14 +120,15 @@ def search_products(term):
 
 
 def product_details(product_id):
-    product = PRODUCTS.get(product_id)
+    product = _products().get(product_id)
     if product is None:
         return {"id": product_id, "found": False}
     return {"id": product_id, **deepcopy(product), "available": product["stock"] > 0}
 
 
 def create_order(product_id, quantity):
-    product = PRODUCTS.get(product_id)
+    store = _current.get()
+    product = store["products"].get(product_id)
     if product is None:
         return {"created": False, "reason": "Produto não existe."}
     if not 1 <= quantity <= 10:
@@ -101,9 +136,10 @@ def create_order(product_id, quantity):
     if product["stock"] < quantity:
         return {"created": False, "reason": f"Só temos {product['stock']} em estoque."}
 
-    number = 1001 + len(ORDERS)
+    orders = store["orders"]
+    number = 1001 + len(orders)
     token = secrets.token_urlsafe(16)  # longo e aleatório: ninguém adivinha o link
-    ORDERS[number] = {
+    orders[number] = {
         "number": number,
         "product_id": product_id,
         "product": product["name"],
@@ -112,8 +148,9 @@ def create_order(product_id, quantity):
         "status": "aguardando pagamento",
         "token": token,
     }
-    ORDER_BY_TOKEN[token] = number
-    return {"created": True, "number": number, "total": ORDERS[number]["total"], "token": token}
+    store["by_token"][token] = number
+    STORE_OF_TOKEN[token] = store
+    return {"created": True, "number": number, "total": orders[number]["total"], "token": token}
 
 
 def public(order):
@@ -121,26 +158,30 @@ def public(order):
 
 
 def order_status(number):
-    order = ORDERS.get(number)
+    order = _orders().get(number)
     if order is None:
         return {"number": number, "found": False}
     return public(order)
 
 
+def _store_and_order(token):
+    store = STORE_OF_TOKEN.get(token)
+    if store is None:
+        return None, None
+    return store, store["orders"][store["by_token"][token]]
+
+
 def order_by_token(token):
-    number = ORDER_BY_TOKEN.get(token)
-    if number is None:
-        return None
-    return public(ORDERS[number])
+    _, order = _store_and_order(token)
+    return None if order is None else public(order)
 
 
 def pay(token):
-    number = ORDER_BY_TOKEN.get(token)
-    if number is None:
+    store, order = _store_and_order(token)
+    if order is None:
         return None
-    order = ORDERS[number]
     if order["status"] == "aguardando pagamento":
-        product = PRODUCTS[order["product_id"]]
+        product = store["products"][order["product_id"]]
         if product["stock"] < order["quantity"]:
             order["status"] = "sem estoque"
         else:
@@ -150,12 +191,12 @@ def pay(token):
 
 
 def cancel_order(number):
-    order = ORDERS.get(number)
+    order = _orders().get(number)
     if order is None:
         return {"cancelled": False, "reason": "Pedido não existe."}
     if order["status"] == "cancelado":
         return {"cancelled": False, "reason": "O pedido já estava cancelado."}
     if order["status"] == "pago":
-        PRODUCTS[order["product_id"]]["stock"] += order["quantity"]  # devolve ao estoque
+        _products()[order["product_id"]]["stock"] += order["quantity"]  # devolve ao estoque
     order["status"] = "cancelado"
     return {"cancelled": True, **public(order)}

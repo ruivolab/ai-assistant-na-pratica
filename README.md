@@ -62,6 +62,20 @@ docker compose up --build
 
 O mesmo servidor MCP roda sozinho: `uv run store-mcp`. Veja o capítulo Mãos.
 
+### Como MCP remoto (a demo pública)
+
+`src/assistant/remote.py` serve as mesmas ferramentas por HTTP, em `/mcp`, para qualquer pessoa ligar no Claude
+dela. Quem pensa é o Claude do visitante, então o servidor não gasta API e o balão fica desligado. O checkout continua
+no mesmo servidor: a IA cria o link e a pessoa paga com o clique.
+
+```bash
+STORE_PUBLIC_URL=http://localhost:8000 uv run uvicorn assistant.remote:app --factory
+```
+
+- Cada sessão MCP (protocolo com aperto de mão) tem a própria loja. No protocolo 2026-07-28 sem login, nada identifica
+  o visitante de uma chamada para a outra: ele divide uma loja com os outros, que recomeça do zero a cada hora.
+- Teto de chamadas por endereço: `MCP_CALLS_PER_HOUR` (padrão 300).
+
 ## Pôr no ar
 
 Uma VPS com Docker basta. Passo a passo em [DEPLOY.md](DEPLOY.md).
