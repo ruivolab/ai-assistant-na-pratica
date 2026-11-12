@@ -56,8 +56,8 @@ async def read_json(request: Request):
     return body
 
 
-def create_app(assistant=None, rate_limit=None):
-    app = FastAPI(title="Loja Exemplo", docs_url=None, redoc_url=None)
+def create_app(assistant=None, rate_limit=None, chat=True, lifespan=None):
+    app = FastAPI(title="Loja Exemplo", docs_url=None, redoc_url=None, lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     per_hour = int(os.environ.get("ASSISTANT_MESSAGES_PER_HOUR", "30"))
     rate_limit = rate_limit or RateLimit(max_messages=per_hour, window_seconds=3600)
@@ -82,7 +82,9 @@ def create_app(assistant=None, rate_limit=None):
         return data.list_products()
 
     @app.post("/api/chat")
-    async def chat(request: Request):
+    async def chat_message(request: Request):
+        if not chat:
+            raise HTTPException(503, "O balão está desligado nesta demo. Use o servidor MCP.")
         body = await read_json(request)
         message = str(body.get("message", "")).strip()
         if not 0 < len(message) <= MAX_MESSAGE_LENGTH:
@@ -117,6 +119,8 @@ def create_app(assistant=None, rate_limit=None):
 
     @app.post("/api/confirm")
     async def confirm(request: Request):
+        if not chat:
+            raise HTTPException(503, "O balão está desligado nesta demo. Use o servidor MCP.")
         body = await read_json(request)
         conversation = conversations.get(body.get("conversation"))
         if conversation is None:
