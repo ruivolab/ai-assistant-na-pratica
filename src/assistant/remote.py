@@ -20,6 +20,52 @@ from .store import data, server
 
 MAX_VISITORS = 500
 SHARED_STORE_SECONDS = 3600
+SOLD_OUT_NOTE = "Out of stock: do not offer or suggest it."
+
+# A demo é a vitrine para quem lê em inglês; o app do livro segue com o catálogo em português.
+DEMO_PRODUCTS = {
+    "cafeteira-italiana": {
+        "name": "Moka pot, 6 cups",
+        "category": "cafeteiras",
+        "price": 189.90,
+        "stock": 12,
+        "description": "Aluminum, for gas and electric stoves. Does not work on induction.",
+        "warranty": "6 months",
+        "faq": {"dishwasher safe?": "No. Rinse with water only, no detergent."},
+    },
+    "prensa-francesa": {
+        "name": "French press 1 L",
+        "category": "cafeteiras",
+        "price": 149.00,
+        "stock": 4,
+        "description": "Borosilicate glass and stainless steel. Also works for tea.",
+        "warranty": "3 months",
+        "faq": {"can I replace the glass?": "Yes, the replacement beaker is sold separately."},
+    },
+    "moedor-manual": {
+        "name": "Manual coffee grinder",
+        "category": "moedores",
+        "price": 259.00,
+        "stock": 0,
+        "description": "Ceramic burr with 18 grind settings, from espresso to French press.",
+        "warranty": "1 year",
+        "faq": {},
+    },
+    "cafe-especial-250g": {
+        "name": "Specialty coffee 250 g (whole beans)",
+        "category": "cafés",
+        "price": 54.00,
+        "stock": 40,
+        "description": (
+            "Arabica from southern Minas Gerais, medium roast, notes of chocolate and caramel."
+        ),
+        "faq": {"does it come ground?": "No, whole beans."},
+    },
+}
+
+
+def demo_store(shared=False):
+    return data.new_store(DEMO_PRODUCTS, random_numbers=shared, sold_out_note=SOLD_OUT_NOTE)
 
 
 class Visitors:
@@ -38,7 +84,7 @@ class Visitors:
     def store_for(self, session_id):
         if session_id is None:
             return self.shared_store()
-        store = self.stores.pop(session_id, None) or data.new_store()
+        store = self.stores.pop(session_id, None) or demo_store()
         self.stores[session_id] = store
         while len(self.stores) > self.max_visitors:
             _, oldest = self.stores.popitem(last=False)
@@ -49,7 +95,7 @@ class Visitors:
         if self.shared is None or self.clock() - self.shared_since > SHARED_STORE_SECONDS:
             if self.shared is not None:
                 data.forget(self.shared)
-            self.shared = data.new_store()
+            self.shared = demo_store(shared=True)
             self.shared_since = self.clock()
         return self.shared
 

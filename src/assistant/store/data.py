@@ -58,8 +58,14 @@ _current = ContextVar("store", default=DEFAULT_STORE)
 STORE_OF_TOKEN = {}  # o checkout chega só com o token: é ele que diz de qual loja é o pedido
 
 
-def new_store():
-    return {"products": deepcopy(INITIAL_PRODUCTS), "orders": {}, "by_token": {}}
+def new_store(products=INITIAL_PRODUCTS, random_numbers=False, sold_out_note=None):
+    return {
+        "products": deepcopy(products),
+        "orders": {},
+        "by_token": {},
+        "random_numbers": random_numbers,
+        "sold_out_note": sold_out_note,
+    }
 
 
 @contextmanager
@@ -95,14 +101,22 @@ def _orders():
     return _current.get()["orders"]
 
 
+def _with_sold_out_note(product, answer):
+    note = _current.get().get("sold_out_note")
+    if note and product["stock"] == 0:
+        answer["note"] = note
+    return answer
+
+
 def summary(product_id):
     product = _products()[product_id]
-    return {
+    answer = {
         "id": product_id,
         "name": product["name"],
         "price": product["price"],
         "available": product["stock"] > 0,
     }
+    return _with_sold_out_note(product, answer)
 
 
 def list_products(category=None):
@@ -123,7 +137,8 @@ def product_details(product_id):
     product = _products().get(product_id)
     if product is None:
         return {"id": product_id, "found": False}
-    return {"id": product_id, **deepcopy(product), "available": product["stock"] > 0}
+    answer = {"id": product_id, **deepcopy(product), "available": product["stock"] > 0}
+    return _with_sold_out_note(product, answer)
 
 
 def create_order(product_id, quantity):
@@ -138,6 +153,9 @@ def create_order(product_id, quantity):
 
     orders = store["orders"]
     number = 1001 + len(orders)
+    while store.get("random_numbers") and (number < 100_000 or number in orders):
+        # loja dividida: o número em sequência diria quantos pediram e abriria o pedido do outro
+        number = 100_000 + secrets.randbelow(900_000)
     token = secrets.token_urlsafe(16)  # longo e aleatório: ninguém adivinha o link
     orders[number] = {
         "number": number,

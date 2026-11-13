@@ -165,3 +165,54 @@ def test_the_oldest_visitor_is_forgotten_past_the_limit():
     visitors.store_for("caio")
 
     assert visitors.store_for("ana") is not ana
+
+
+@pytest.mark.anyio
+async def test_the_demo_catalog_speaks_english_and_skips_empty_fields(serve):
+    base = serve()
+
+    async with Client(f"{base}/mcp") as client:
+        products = result(await client.call_tool("list_products", {}))
+        coffee = result(
+            await client.call_tool("product_details", {"product_id": "cafe-especial-250g"})
+        )
+
+    assert {p["name"] for p in products} >= {
+        "Specialty coffee 250 g (whole beans)",
+        "French press 1 L",
+    }
+    assert "warranty" not in coffee
+    assert "Minas Gerais" in coffee["description"]
+
+
+@pytest.mark.anyio
+async def test_a_sold_out_product_says_not_to_offer_it(serve):
+    base = serve()
+
+    async with Client(f"{base}/mcp") as client:
+        listed = {p["id"]: p for p in result(await client.call_tool("list_products", {}))}
+        grinder = result(
+            await client.call_tool("product_details", {"product_id": "moedor-manual"})
+        )
+
+    assert "do not offer" in listed["moedor-manual"]["note"]
+    assert "do not offer" in grinder["note"]
+    assert "note" not in listed["cafe-especial-250g"]
+
+
+@pytest.mark.anyio
+async def test_in_the_shared_store_order_numbers_reveal_nothing(serve):
+    base = serve()
+
+    async with Client(f"{base}/mcp") as ana, Client(f"{base}/mcp") as bia:
+        first = result(await buy(ana))
+        second = result(await buy(ana))
+        guesses = [
+            result(await bia.call_tool("order_status", {"number": n})) for n in (1001, 1002)
+        ]
+        mine = result(await ana.call_tool("order_status", {"number": second["number"]}))
+
+    assert all(100_000 <= o["number"] <= 999_999 for o in (first, second))
+    assert second["number"] != first["number"] + 1
+    assert all(g["found"] is False for g in guesses)
+    assert mine["status"] == "aguardando pagamento"

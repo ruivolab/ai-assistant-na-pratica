@@ -73,7 +73,10 @@ STORE_PUBLIC_URL=http://localhost:8000 uv run uvicorn assistant.remote:app --fac
 ```
 
 - Cada sessão MCP (protocolo com aperto de mão) tem a própria loja. No protocolo 2026-07-28 sem login, nada identifica
-  o visitante de uma chamada para a outra: ele divide uma loja com os outros, que recomeça do zero a cada hora.
+  o visitante de uma chamada para a outra: ele divide uma loja com os outros, que recomeça do zero a cada hora. Nela,
+  o número do pedido é sorteado (de 100000 a 999999), para não dizer quantos pediram nem abrir o pedido do outro.
+- O catálogo da demo é em inglês (`DEMO_PRODUCTS`, em `remote.py`), e o produto sem estoque vem com um aviso para a IA
+  não oferecê-lo. O app do livro segue com o catálogo em português.
 - Teto de chamadas por endereço: `MCP_CALLS_PER_HOUR` (padrão 300).
 
 ## Pôr no ar
