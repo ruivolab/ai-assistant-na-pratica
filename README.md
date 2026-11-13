@@ -77,6 +77,9 @@ STORE_PUBLIC_URL=http://localhost:8000 uv run uvicorn assistant.remote:app --fac
   o número do pedido é sorteado (de 100000 a 999999), para não dizer quantos pediram nem abrir o pedido do outro.
 - O catálogo da demo é em inglês (`DEMO_PRODUCTS`, em `remote.py`), e o produto sem estoque vem com um aviso para a IA
   não oferecê-lo. O app do livro segue com o catálogo em português.
+- O servidor da demo se apresenta em inglês (`demo_mcp()`: nome "Ruivolab Coffee Shop (demo)", instruções e descrições
+  das ferramentas). São as mesmas funções e os mesmos tipos (read, prepare, change) do `server.py`; o `store-mcp` do
+  livro continua "Loja Exemplo", em português.
 - Teto de chamadas por endereço: `MCP_CALLS_PER_HOUR` (padrão 300).
 
 ## Pôr no ar

@@ -9,6 +9,8 @@ from fastmcp import Client
 
 from assistant.app.limits import RateLimit
 from assistant.remote import SHARED_STORE_SECONDS, Visitors, create_remote_app
+from assistant.store.rules import kind_of
+from assistant.store.server import mcp as book_mcp
 
 
 @pytest.fixture
@@ -216,3 +218,30 @@ async def test_in_the_shared_store_order_numbers_reveal_nothing(serve):
     assert second["number"] != first["number"] + 1
     assert all(g["found"] is False for g in guesses)
     assert mine["status"] == "aguardando pagamento"
+
+
+@pytest.mark.anyio
+async def test_the_demo_introduces_itself_as_a_coffee_shop_in_english(serve):
+    base = serve()
+
+    async with Client(f"{base}/mcp", mode="legacy") as client:
+        hello = client.initialize_result
+
+    assert hello.server_info.name == "Ruivolab Coffee Shop (demo)"
+    assert "coffee" in hello.instructions and "store" in hello.instructions
+
+
+@pytest.mark.anyio
+async def test_the_demo_tools_are_described_in_english_and_keep_their_kind(serve):
+    base = serve()
+
+    async with Client(f"{base}/mcp") as client:
+        demo = {tool.name: tool for tool in await client.list_tools()}
+    async with Client(book_mcp) as client:
+        book = {tool.name: tool for tool in await client.list_tools()}
+
+    assert demo["list_products"].description.startswith("Products of the Ruivolab Coffee Shop")
+    assert all("loja" not in tool.description.casefold() for tool in demo.values())
+    assert {name: kind_of(tool) for name, tool in demo.items()} == {
+        name: kind_of(tool) for name, tool in book.items()
+    }

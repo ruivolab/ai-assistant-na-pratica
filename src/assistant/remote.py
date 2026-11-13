@@ -13,10 +13,63 @@ from collections import OrderedDict
 from urllib.parse import urlparse
 
 from fastapi.responses import JSONResponse
+from fastmcp import FastMCP
 
 from .app.limits import RateLimit
 from .app.main import create_app
 from .store import data, server
+from .store.rules import CHANGE, PREPARE, READ
+
+DEMO_NAME = "Ruivolab Coffee Shop (demo)"
+DEMO_INSTRUCTIONS = (
+    "Ruivolab Coffee Shop is a demo online store: coffee, coffee makers and a grinder. "
+    "Use these tools whenever the person asks about the store, its coffees, products, stock, "
+    "policies or an order. Prices are in Brazilian reais (R$). Payment is simulated: you only "
+    "create a checkout link, and the person pays by clicking on that page."
+)
+# Quem decide se chama a ferramenta é o Claude do visitante, e ele lê estas descrições.
+DEMO_TOOLS = [
+    (
+        server.list_products,
+        READ,
+        "Products of the Ruivolab Coffee Shop, with price and availability. "
+        "Categories: cafeteiras (coffee makers), moedores (grinders), cafés (coffee).",
+    ),
+    (server.search_products, READ, "Search products by name, description or category."),
+    (
+        server.product_details,
+        READ,
+        "All the shop knows about a product: price, stock, description, warranty and FAQ.",
+    ),
+    (
+        server.order_status,
+        READ,
+        "Product, quantity, total and status of an order "
+        "(aguardando pagamento = awaiting payment, pago = paid, cancelado = cancelled).",
+    ),
+    (
+        server.search_docs,
+        READ,
+        "Search the shop's texts (in Portuguese): returns, shipping and user manuals. "
+        "Returns up to 3 passages, each with its source. Answer only with what they say, "
+        "citing the source. Empty list: say you did not find it.",
+    ),
+    (
+        server.create_purchase_link,
+        PREPARE,
+        "Creates an order awaiting payment and returns the checkout link. "
+        "Nothing is charged here: the person pays on the link's page.",
+    ),
+    (server.cancel_order, CHANGE, "Cancels an order. The person must authorize it."),
+]
+
+
+def demo_mcp():
+    mcp = FastMCP(DEMO_NAME, instructions=DEMO_INSTRUCTIONS)
+    for tool, kind, description in DEMO_TOOLS:
+        mcp.tool(tool, description=description, **kind)
+    return mcp
+
 
 MAX_VISITORS = 500
 SHARED_STORE_SECONDS = 3600
@@ -122,7 +175,7 @@ def create_remote_app(public_url=None, rate_limit=None):
     per_hour = int(os.environ.get("MCP_CALLS_PER_HOUR", "300"))
     rate_limit = rate_limit or RateLimit(max_messages=per_hour, window_seconds=3600)
 
-    mcp_app = server.mcp.http_app(path="/mcp", allowed_hosts=[urlparse(public_url).netloc])
+    mcp_app = demo_mcp().http_app(path="/mcp", allowed_hosts=[urlparse(public_url).netloc])
     app = create_app(chat=False, lifespan=mcp_app.lifespan)
     app.mount("/", limit_calls(mcp_app, rate_limit))  # só o /mcp cai aqui
     return app
